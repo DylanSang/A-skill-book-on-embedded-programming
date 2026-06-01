@@ -1,0 +1,83 @@
+---
+description: 嵌入式代码生成规范 — 根据方案或文件生成 C/C++ 代码时必须遵守的架构、接口与模块化规则
+globs: "**/*.cpp,**/*.c,**/*.h,**/CMakeLists.txt"
+alwaysApply: false
+---
+
+# 代码生成规范
+
+## 架构原则
+
+- **POSIX 接口优先**：系统调用一律使用 POSIX API（open/read/write/close/ioctl/select/poll），禁用平台私有或非标准扩展
+- **完全重构**：生成代码必须是全新实现，不得在原单体代码上打补丁；参考 `research.md` 理解逻辑后重写
+- **C++11 标准**：不使用 C++14/17/20 特性（目标编译器 arm-linux-gnueabihf-g++ 6.3）
+
+## 模块化与进程独立
+
+- 每个不可拆分的功能内聚为一个**独立进程**（独立二进制），可单独编译、运行、测试
+- 进程间通信仅限 **MQTT**（mosquitto localhost:1883）和 **terminal 参数传递**，禁止共享内存/全局变量/Unix Socket
+- 每个进程必须具备完善的 **CLI 标准输入输出**，可在 terminal 通过参数运行：
+
+```bash
+# 必须支持的基础参数
+qe_<module> --help                    # 显示帮助
+qe_<module> --config <path>           # 配置文件
+qe_<module> --log-level <level>       # debug|info|warn|error
+qe_<module> --<single-op> [args]      # 单次操作模式（执行后退出，便于测试）
+```
+
+## 子模块插件化
+
+- 子模块设计为**可热加载插件**，通过运行时参数或 MQTT 消息动态加载/卸载
+- 实现方式：`dlopen`/`dlsym` 加载 `.so`，或通过 CLI 参数指定子模块列表
+
+```cpp
+// 插件接口（所有子模块实现）
+struct PluginInterface {
+    const char* name;
+    int (*init)(const char* config_json);
+    int (*process)(const char* input_json, char* output_json, int max_len);
+    void (*cleanup)();
+};
+```
+
+## 文件行数约束
+
+- 每个源文件 **200~800 行**（含头文件），超 800 行**必须拆分**
+- 每个 `.cpp` 对应一个 `.h`，公共接口在头文件声明
+
+## 模块自测功能
+
+每个模块必须内建自测能力：
+
+```bash
+qe_<module> --self-test                # 执行自测
+qe_<module> --self-test --test-data <path>  # 使用指定测试数据包
+```
+
+自测需包含：自测方案（测试什么）、测试数据包（输入数据）、测试结果（JSON 输出 PASS/FAIL + 详情）
+
+## README.md 要求
+
+每个模块目录必须包含 `README.md`：
+- 代码功能说明
+- 流程图（ASCII 或 Mermaid）
+- 接口说明（CLI 参数 + MQTT 主题 + 插件接口）
+- 测试方案、测试数据位置、测试结果判断规则
+
+## 代码结构一致性
+
+所有模块遵循统一目录结构：
+
+```
+modules/<module-name>/
+├── CMakeLists.txt
+├── README.md
+├── src/
+│   ├── <module>_main.cpp
+│   ├── <component>.cpp/.h
+│   └── plugin_<sub>.cpp/.h
+└── test/
+    ├── test_data/
+    └── self_test.cpp
+```

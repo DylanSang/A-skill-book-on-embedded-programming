@@ -1,0 +1,71 @@
+---
+description: RV1126 模块交接规范 — 模块开发完成后生成完整交接清单，涵盖从设计到转产的所有文件
+alwaysApply: true
+---
+
+# RV1126 模块交接规范
+
+模块开发完成后，必须生成 `交接清单.md`，覆盖从设计到实现到转产的全部产物。
+
+## 交接清单.md 模板
+
+```markdown
+# 交接清单 — <模块名>
+
+## 1. 设计文档
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| 技术方案文档 (TSD) | docs/<module>_TSD.md | 架构设计、接口定义、MQTT 主题 |
+| 评审报告 (RRD) | docs/<module>_RRD.md | 22 条评审规则量化得分 |
+| 实施任务文档 (ITD) | docs/<module>_ITD.md | AI 可执行的任务分解 |
+
+## 2. 源代码
+| 文件 | 路径 | 行数 | 说明 |
+|------|------|------|------|
+| 主入口 | modules/<module>/src/<module>_main.cpp | ~XXX | CLI、MQTT、主循环 |
+| 组件 A | modules/<module>/src/<comp_a>.cpp/.h | ~XXX | <职责> |
+| CMakeLists | modules/<module>/CMakeLists.txt | ~XX | 构建脚本 |
+
+## 3. 测试文件
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| 自测代码 | modules/<module>/test/self_test.cpp | 自测入口 |
+| 测试数据 | modules/<module>/test/test_data/ | 输入数据包 |
+| 测试报告 | docs/<module>_测试报告.md | 最终测试结果 |
+
+## 4. 编译与部署
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| 编译报告 | docs/<module>_编译报告.md | 编译环境、产物、修复记录 |
+| 测试流程 | docs/<module>_测试流程.md | 部署步骤、测试命令 |
+| 编译产物 | build/qe_<module> | ARM 二进制 |
+| watchdog 配置 | deploy/modules.json | 启动条目 |
+
+## 5. 调试记录
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| Patch 文件 | patches/v*.patch | 每次修复的差异 |
+| 调试日志 | debug_logs/*.log | 板卡运行日志 |
+| debug.md | docs/debug.md | 离线调试指南（如有）|
+
+## 6. 配置文件
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| 模块配置 | config/<module>.json | 默认配置 |
+| 全局配置变更 | config/config.json | 新增字段说明 |
+
+## 7. README
+| 文件 | 路径 |
+|------|------|
+| 模块 README | modules/<module>/README.md |
+```
+
+## 交接检查项
+
+- [ ] 所有源文件行数在 200~800 行
+- [ ] 编译无 error
+- [ ] 自测通过（--self-test 返回 PASS）
+- [ ] MQTT heartbeat/ready/shutdown 正常
+- [ ] README.md 含流程图和接口说明
+- [ ] 所有 patch 已提交到 git
+- [ ] 交接清单中每个文件都存在且路径正确

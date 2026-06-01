@@ -1,0 +1,101 @@
+---
+description:  调试工作流 — adb 推送、运行、收集日志、迭代修复、生成 patch 和测试报告的完整闭环流程
+alwaysApply: true
+---
+
+#  调试工作流
+
+## 调试迭代闭环
+
+```
+1. adb push 推送文件到板卡
+      │
+2. chmod +x 修改权限
+      │
+3. 运行程序，收集运行 log
+      │
+4. adb pull 获取 log 到本地
+      │
+5. 分析 log，定位问题
+      │
+6. 修改代码 → 重新编译
+      │
+7. 生成 patch（git diff > vX.X.patch）
+      │
+8. 回到步骤 1，直到所有测试通过
+```
+
+## 详细步骤
+
+### 推送与权限
+
+```bash
+adb push build/qe_<module> /userdata/app/
+adb shell chmod +x -R /userdata/app/
+```
+
+### 运行与日志收集
+
+```bash
+# 板卡上运行（通过 adb shell）
+adb shell "/userdata/app/qe_<module> --log-level debug 2>&1 | tee /userdata/log/test_<module>.log"
+
+# 拉取日志到本地
+adb pull /userdata/log/test_<module>.log ./debug_logs/
+```
+
+### Patch 生成（每次修复后）
+
+```bash
+git add -A
+git diff --cached > patches/v<version>_<module>_<description>.patch
+git commit -m "fix(<module>): <修复描述>"
+```
+
+## 无法连接板卡时
+
+若 adb 连接失败，**禁止阻塞**，改为生成 `debug.md`：
+
+```markdown
+# debug.md — 离线调试指南
+## 问题描述
+[当前编译产物的状态、预期行为]
+
+## 部署步骤（人工执行）
+1. adb push <file> /userdata/app/
+2. chmod +x ...
+3. 运行命令: ...
+
+## 预期日志关键字
+[应该看到的正常输出]
+
+## 异常日志处理
+[若看到 <错误关键字>，则执行 <操作>]
+
+## 收集信息
+请将以下信息反馈：
+- /userdata/log/test_<module>.log 完整内容
+- dmesg | tail -50
+- ps aux | grep qe_
+```
+
+`debug.md` 可由人类评审修改后，再作为调试输入继续工作。
+
+## 调试完毕后
+
+生成 `测试报告.md`：
+
+```markdown
+# 测试报告
+- 模块: qe_<module>
+- 测试日期: YYYY-MM-DD
+- 迭代次数: X
+- Patch 列表: [v1.patch, v2.patch, ...]
+- 测试项及结果:
+  | 测试项 | 结果 | 说明 |
+  |--------|------|------|
+  | 启动测试 | PASS/FAIL | |
+  | 自测 | PASS/FAIL | |
+  | MQTT 通信 | PASS/FAIL | |
+- 最终结论: 全部通过 / 部分通过（附遗留问题）
+```

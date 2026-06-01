@@ -1,0 +1,56 @@
+---
+description: RV1126 AI 安全禁区 — AI Agent 绝对禁止执行的危险操作，保护板卡底层系统安全
+alwaysApply: true
+---
+
+# AI Agent 安全禁区
+
+以下操作 **严格禁止**，任何情况下不得执行：
+
+## 绝对禁止的操作
+
+| 禁止项 | 说明 | 危险等级 |
+|--------|------|----------|
+| 刷写 bootloader | 禁止操作 u-boot、SPL、任何引导扇区 | 致命 |
+| 刷写 firmware | 禁止 dd/flash 写入 eMMC 分区镜像 | 致命 |
+| 修改 kernel 核心子系统 | 禁止修改内核源码、内核模块配置、设备树核心节点 | 致命 |
+| 修改 toolchain | 禁止修改交叉编译器、sysroot、libc | 致命 |
+| 自动分区存储设备 | 禁止 fdisk/parted/mkfs 操作 eMMC/SD 卡分区表 | 致命 |
+
+## 禁止执行的具体命令
+
+```bash
+# 以下命令绝对不允许执行
+dd if=* of=/dev/mmcblk*        # 写入块设备
+dd if=* of=/dev/block/*        # 写入块设备
+flash_eraseall *               # 擦除 flash
+nandwrite *                    # 写入 nand
+fdisk /dev/*                   # 分区操作
+parted /dev/*                  # 分区操作
+mkfs.* /dev/*                  # 格式化设备
+upgrade_tool *                 # RK 刷机工具
+rkdeveloptool *                # RK 开发工具
+```
+
+## 仅允许的板卡操作
+
+```bash
+# 允许：用户空间文件操作
+adb push <file> /userdata/     # 推送应用文件到用户分区
+adb shell chmod +x <file>      # 修改用户文件权限
+adb shell /userdata/app/<bin>  # 运行用户程序
+adb pull /userdata/log/*       # 拉取日志
+adb shell cat /proc/*          # 读取系统信息（只读）
+adb shell dmesg                # 读取内核日志（只读）
+
+# 允许：加载用户空间内核模块（仅项目自有驱动）
+adb shell insmod /userdata/drivers/<module>.ko
+adb shell rmmod <module>
+```
+
+## 遇到需要禁止操作时
+
+若任务需要上述禁止操作才能完成，Agent 必须：
+1. **立即停止**，不执行任何禁止命令
+2. 生成说明文档，描述需要人工执行的操作
+3. 等待人工确认后才可继续后续任务

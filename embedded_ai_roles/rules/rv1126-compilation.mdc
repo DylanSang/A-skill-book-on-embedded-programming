@@ -1,0 +1,79 @@
+---
+description:  交叉编译工作流 — 交叉编译，自动检测修复编译故障，编译成功后生成编译报告和测试流程文档
+globs: "**/CMakeLists.txt,**/Makefile,**/*.cmake"
+alwaysApply: false
+---
+
+#  编译工作流
+
+## 交叉编译器
+
+- C 编译器：`arm-linux-gnueabihf-gcc`
+- C++ 编译器：`arm-linux-gnueabihf-g++`
+- 标准：C11 / C++11
+- 目标平台：ARM Cortex-A7, Linux 4.19
+
+## 编译迭代流程
+
+```
+1. 执行交叉编译
+   │
+2. 检查编译输出 → 有 error？
+   │                   │
+   │ 无                是
+   │                   │
+   │              3. 分析错误原因
+   │                   │
+   │              4. 自动修复代码
+   │                   │
+   │              5. 重新编译（回到步骤1）
+   │
+6. 编译成功 → 生成 编译报告.md
+   │
+7. 生成 测试流程.md
+```
+
+## 自动故障检测与修复
+
+编译失败时，Agent 必须：
+1. 读取完整编译错误输出
+2. 定位出错的源文件和行号
+3. 分析错误类型（语法/链接/头文件缺失/类型不匹配等）
+4. 自动修复后重新编译
+5. 循环执行直到编译成功（无 error，warnings 可接受）
+6. 若连续 5 次修复失败，生成 `编译故障分析.md` 并暂停，等待人工介入
+
+## 编译成功后生成文档
+
+### 编译报告.md
+
+```markdown
+# 编译报告
+- 编译时间: YYYY-MM-DD HH:mm:ss
+- 编译器: arm-linux-gnueabihf-g++ <version>
+- 编译目标: qe_<module_name>
+- 编译结果: 成功
+- Warning 数量: X（附详情）
+- 产物路径: build/qe_<module_name>
+- 产物大小: XXX KB
+- 修复迭代次数: X
+- 修复记录: [每次修复的错误和解决方式]
+```
+
+### 测试流程.md
+
+```markdown
+# 测试流程
+## 部署步骤
+1. adb push build/qe_<module> /userdata/app/
+2. chmod +x /userdata/app/qe_<module>
+
+## 功能测试
+1. 基础启动测试: qe_<module> --help
+2. 自测: qe_<module> --self-test
+3. 单次操作测试: qe_<module> --<single-op> <args>
+4. MQTT 集成测试步骤
+
+## 预期结果与判断标准
+[每个测试的 PASS/FAIL 条件]
+```
